@@ -1,4 +1,4 @@
-# MetaSymbO: Symbolic Programmable Metamaterial Design via Inference-Time Latent Optimization
+# MetaSymbO: Multi-Agent Language-Guided Metamaterial Discovery via Symbolic Latent Evolution
 
 This script performs **MetaSymbO** using a end-to-end collaborative method.  
 It enables **end-to-end structure generation** driven by symbolic logic and latent optimization through interactions among:

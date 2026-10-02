@@ -4,6 +4,18 @@
 
 MetaSymbO turns natural-language design goals into three-dimensional metamaterial lattices. A language-based designer, a learned generator, and a supervisor collaborate through symbolic operations and latent-space optimization to explore candidate structures and their predicted elastic properties.
 
+We appreciate the citations as follows:
+~~~
+@inproceedings{
+chen2026metasymbo,
+title={MetaSymbO: Multi-Agent Language-Guided Metamaterial Discovery via Symbolic Latent Evolution},
+author={Jianpeng Chen and Wangzhi Zhan and Dongqi Fu and Junkai Zhang and Zian Jia and Ling Li and Wei Wang and Dawei Zhou},
+booktitle={Third Conference on Language Modeling},
+year={2026},
+url={https://openreview.net/forum?id=XccQjdb8wh}
+}
+~~~
+
 ## Try MetaSymbO Online
 
 ### [Open the live Design Studio →](http://zhoulab-1.cs.vt.edu:5559/)

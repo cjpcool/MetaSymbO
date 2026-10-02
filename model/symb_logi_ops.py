@@ -166,48 +166,25 @@ def node_logic_loss(P,
     · mu_b/logvar_b : [N_t, D]
     · P             : [N_s, N_t]  soft matching
     """
-    N_s, N_t, D = mu_a.shape[0], mu_b.shape[0], mu_a.shape[1]
-
-    # ---------- broadcast ----------
-    mu_a_ = mu_a[:, None, :].expand(N_s, N_t, D)
-    lv_a_ = logvar_a[:, None, :].expand_as(mu_a_)
-    mu_b_ = mu_b[None, :, :].expand(N_s, N_t, D)
-    lv_b_ = logvar_b[None, :, :].expand_as(mu_b_)
+    selected_idx = P.argmax(dim=1)
+    source_idx = torch.arange(mu_a.shape[0], device=mu_a.device)
+    matched_mu = mu_b[selected_idx]
+    matched_logvar = logvar_b[selected_idx]
 
     # ---------- symbolic ----------
     if logic_mode == "int":
-        mu_t, lv_t = poe(mu_a_, lv_a_, mu_b_, lv_b_, eps=eps)
+        mu_t, lv_t = poe(mu_a, logvar_a, matched_mu, matched_logvar, eps=eps)
     elif logic_mode == "neg":
-        # mu_t, lv_t = qoe(mu_a_, lv_a_, mu_b_, lv_b_, eps=eps)
-        mu_t, lv_t = gaussian_negation(mu_a_, lv_a_, mu_b_, lv_b_,
+        mu_t, lv_t = gaussian_negation(mu_a, logvar_a, matched_mu, matched_logvar,
                                        alpha=1.0, beta=0.01, eps=eps)
     elif logic_mode == "mix":
-        mu_t, lv_t = mixture_mm(mu_a_, lv_a_, mu_b_, lv_b_,
+        mu_t, lv_t = mixture_mm(mu_a, logvar_a, matched_mu, matched_logvar,
                                 lam=lam, eps=eps)
     else:
         raise ValueError
     
-    row_mass = P.sum(1)                     # [N_s]
-    col_mass = P.sum(0)                     # [N_t]
-    
-    # only compute overlapping nodes
-    matched_a = (row_mass > thr)            # [N_s] bool
-    matched_b = (col_mass > thr)            # [N_t] bool
-    # P = P[matched_a]
-    # mu_a_ = mu_a_[matched_a]                # [N_s, N_t, D]
-    # lv_a_ = lv_a_[matched_a]                # [N_s, N_t, D]
-    # mu_t  = mu_t[matched_a]                 # [N_s, D]
-    # lv_t  = lv_t[matched_a]                 # [N_s, D]
-    selected_idx = P.argmax(dim=1)   
-    r = torch.arange(N_s, device=mu_a.device)  # [N_s] index
-    
-    kl_pair = kl_gaussian_diag(mu_a_, lv_a_, mu_t, lv_t, eps=eps)  # [N_s,N_t]
-
-    L_match = (P[r, selected_idx] * kl_pair[r, selected_idx]).sum()
-
-
-
-    return L_match
+    kl_pair = kl_gaussian_diag(mu_a, logvar_a, mu_t, lv_t, eps=eps)
+    return (P[source_idx, selected_idx] * kl_pair).sum()
 
 def node_logic_keep_original(P, mu_a_new, logvar_a_new, mu_a_old, logvar_a_old, 
                              thr=0.1, eps=1e-8):

@@ -118,59 +118,121 @@ class LatticeEvaluator(LatticeEvaluatorMaster):
         assert self.cluster_size <= self.data_size_for_eval, 'data_size_for_eval < cluster_size'
 
 
+    @staticmethod
+    def _npz_get_optional(lattice_npz, key, default=None):
+        """Safely read optional fields from an npz file.
+
+        CDVAE generations may save missing fields as 0-D object arrays, e.g.
+        edge_index=array(None, dtype=object) or prop_list=array(None, dtype=object).
+        This helper converts those cases to Python None.
+        """
+        if key not in lattice_npz.files:
+            return default
+        value = lattice_npz[key]
+        if isinstance(value, np.ndarray) and value.shape == ():
+            value = value.item()
+        if value is None:
+            return default
+        return value
+
+    @staticmethod
+    def _normalize_edge_index(edge_index, num_nodes):
+        """Return a valid edge index with shape (2, E), or None if unavailable.
+
+        This keeps MetaSymbO files unchanged while preventing CDVAE files with
+        edge_index=None from crashing the loader. Distance-to-train evaluation
+        does not require edges; validity/connectivity metrics will safely treat
+        missing edges as invalid through existing checks.
+        """
+        if edge_index is None:
+            return None
+
+        edge_index = np.asarray(edge_index)
+        if edge_index.dtype == object and edge_index.shape == ():
+            edge_index = edge_index.item()
+            if edge_index is None:
+                return None
+            edge_index = np.asarray(edge_index)
+
+        if edge_index.size == 0:
+            return None
+
+        if edge_index.ndim != 2:
+            return None
+
+        # Accept both (2, E) and (E, 2).
+        if edge_index.shape[0] != 2 and edge_index.shape[1] == 2:
+            edge_index = edge_index.T
+        if edge_index.shape[0] != 2:
+            return None
+
+        edge_index = edge_index.astype(np.int64, copy=False)
+        valid_mask = (edge_index[0] >= 0) & (edge_index[0] < num_nodes) & \
+                     (edge_index[1] >= 0) & (edge_index[1] < num_nodes)
+        edge_index = edge_index[:, valid_mask]
+        if edge_index.shape[1] == 0:
+            return None
+        return edge_index
+
     def __read_eval_data(self, eval_file_path):
-        file_names = os.listdir(eval_file_path)
-        for file_name in file_names:
-            full_path = os.path.join(eval_file_path, file_name)
-            if not full_path.endswith('.npz'):
-                continue
+        if os.path.isfile(eval_file_path):
+            file_paths = [eval_file_path]
+        else:
+            file_paths = [
+                os.path.join(eval_file_path, file_name)
+                for file_name in sorted(os.listdir(eval_file_path))
+                if file_name.endswith('.npz')
+            ]
+
+        for full_path in file_paths:
             lattice_npz = np.load(full_path, allow_pickle=True)
 
-            
+            # CDVAE files use lengths/angles + frac_coords, but may not contain
+            # a precomputed lattice vector. MetaSymbO files with `vector` are
+            # still supported.
             lattice_lengths = lattice_npz['lengths']
             lattice_angles = lattice_npz['angles']
-            try:
-                lattice_vector = lattice_npz['vector']
-            except:
-                lattice_vector = lattice_params_to_matrix(lattice_lengths[0],lattice_lengths[1],lattice_lengths[2],
-                                                  lattice_angles[0], lattice_angles[1], lattice_angles[2])
+            lattice_vector = self._npz_get_optional(lattice_npz, 'vector')
+            if lattice_vector is None:
+                lattice_vector = lattice_params_to_matrix(
+                    lattice_lengths[0], lattice_lengths[1], lattice_lengths[2],
+                    lattice_angles[0], lattice_angles[1], lattice_angles[2])
+            lattice_vector = np.asarray(lattice_vector)
             self.lattice_vectors.append(lattice_vector)
 
-            try:
-                frac_coord = lattice_npz['frac_coords']
-            except:
-                cart_coord = lattice_npz['cart_coords']
-                frac_coord = cart_to_frac_coords(cart_coord,lattice_vector, len(cart_coord))
-            cart_coord = frac_coord
+            frac_coord = self._npz_get_optional(lattice_npz, 'frac_coords')
+            cart_coord = self._npz_get_optional(lattice_npz, 'cart_coords')
 
-            self.frac_coords.append(frac_coord)
+            if frac_coord is None and cart_coord is None:
+                raise KeyError(f'{full_path} must contain either frac_coords or cart_coords.')
+
+            if frac_coord is None:
+                cart_coord = np.asarray(cart_coord)
+                frac_coord = cart_to_frac_coords(cart_coord, lattice_vector, len(cart_coord))
+            else:
+                frac_coord = np.asarray(frac_coord)
 
             num_atoms = len(frac_coord)
+            if cart_coord is None:
+                cart_coord = frac_to_cart_coords(frac_coord, lattice_vector, num_atoms)
+            else:
+                cart_coord = np.asarray(cart_coord)
 
-            try:
-                cart_coord = lattice_npz['cart_coords']
-            except:
-                cart_coord = frac_to_cart_coords(frac_coord,
-                                    lattice_vector,
-                                    num_atoms)
+            self.frac_coords.append(frac_coord)
             self.cart_coords.append(cart_coord)
 
-            atom_types = lattice_npz['atom_types']
-            # Removed unused variable declaration
-            edge_index = lattice_npz['edge_index']
-            # if edge_index is None or np.any(edge_index == np.array(None)):
-            #     edge_index = radius_graph(torch.from_numpy(frac_coord), r=1.0, loop=False).numpy()
-            self.edges.append(edge_index)
-            self.node_types.append(atom_types)
-            edge_index[edge_index >= len(cart_coord)] = 0
-            # visualizeLattice(cart_coord, edge_index)
+            atom_types = self._npz_get_optional(lattice_npz, 'atom_types')
+            if atom_types is None:
+                atom_types = self._npz_get_optional(lattice_npz, 'node_types')
+            self.node_types.append(None if atom_types is None else np.asarray(atom_types))
 
-            try:
-                cond_prop = lattice_npz['prop_list']
-                self.cond_prop.append(cond_prop)
-            except:
-                print('No conditions')
-                pass
+            edge_index = self._npz_get_optional(lattice_npz, 'edge_index')
+            edge_index = self._normalize_edge_index(edge_index, num_atoms)
+            self.edges.append(edge_index)
+
+            cond_prop = self._npz_get_optional(lattice_npz, 'prop_list')
+            if cond_prop is not None:
+                self.cond_prop.append(np.asarray(cond_prop))
 
 
     def evaluate_all_uncondition_generation(self):
@@ -279,6 +341,102 @@ class LatticeEvaluator(LatticeEvaluatorMaster):
         metrics_dict, _ = self.compute_cov(self.cart_coords, train_x, self.diversity_error_bar)
         print(metrics_dict)
         return metrics_dict['cov_recall'], metrics_dict['cov_precision']
+
+    @staticmethod
+    def _coord_to_numpy(coord):
+        """Convert one coordinate array/tensor to a NumPy array."""
+        if isinstance(coord, torch.Tensor):
+            coord = coord.detach().cpu().numpy()
+        return np.asarray(coord)
+
+    @staticmethod
+    def _dataset_to_cart_coords(dataset):
+        """Extract Cartesian coordinates from a lattice dataset/list."""
+        return [LatticeEvaluator._coord_to_numpy(data.cart_coords) for data in dataset]
+
+    def eval_distance_to_train(self,
+                               train_dataset: LatticeTruss = None,
+                               train_coords: List[np.ndarray] = None,
+                               num_train_structure: int = None,
+                               seed: int = 42,
+                               return_per_sample: bool = False):
+        """
+        Evaluate generated structures by nearest-neighbor distance to the training set.
+
+        For each generated structure g, we compute its structure distance to every
+        training structure t using the same unit-cell distance used in coverage:
+            d(g, t) = mean_i min_j ||g_i - t_j||_2.
+        We then keep the nearest training distance for each generated sample.
+
+        Returns:
+            avg_dist_to_train: mean nearest-training distance over generated samples.
+            min_dist_to_train: smallest nearest-training distance among generated samples.
+
+        Larger values indicate generated structures are farther from the training
+        set under this coordinate-level metric.
+        """
+        if train_coords is None:
+            if train_dataset is None:
+                train_dataset = self.test_dataset
+            assert train_dataset is not None, \
+                'Please provide either train_dataset or train_coords.'
+            train_coords = self._dataset_to_cart_coords(train_dataset)
+        else:
+            train_coords = [self._coord_to_numpy(coord) for coord in train_coords]
+
+        if num_train_structure is not None and num_train_structure < len(train_coords):
+            rng = np.random.default_rng(seed)
+            selected_idx = rng.choice(len(train_coords), size=num_train_structure, replace=False)
+            train_coords = [train_coords[idx] for idx in selected_idx]
+
+        assert len(self.cart_coords) > 0, 'No generated structures are loaded.'
+        assert len(train_coords) > 0, 'No training structures are provided.'
+
+        gen_to_train_min_dist = []
+        for gen_idx, gen_coord in enumerate(tqdm(self.cart_coords, desc='Computing Gen-Train Dist')):
+            gen_coord = self._coord_to_numpy(gen_coord)
+
+            if False:
+                lattice_vector = None
+                if self.lattice_vectors is not None and gen_idx < len(self.lattice_vectors):
+                    lattice_vector = self._coord_to_numpy(self.lattice_vectors[gen_idx])
+
+                periodic_valid = False
+                if lattice_vector is not None:
+                    periodic_valid = LatticeEvaluator.is_periodic_necessary_condition(
+                        gen_coord,
+                        lattice_vector.reshape(3, 3),
+                        error_bar=self.periodic_error_bar,
+                    )
+
+                symmetry_score = LatticeEvaluator.central_symmetry(
+                    gen_coord,
+                    error_bar=self.central_symmetry_error_bar,
+                )
+                symmetry_valid = symmetry_score > 0.
+
+                if not (periodic_valid and symmetry_valid):
+                    continue
+            dist_to_train = []
+            for train_coord in train_coords:
+                values = LatticeEvaluator.compute_uc_dist_Hungary_alg(gen_coord, train_coord)
+                dist_to_train.append(values.mean())
+            gen_to_train_min_dist.append(np.min(dist_to_train))
+
+        gen_to_train_min_dist = np.asarray(gen_to_train_min_dist, dtype=float)
+        metrics_dict = {
+            'avg_dist_to_train': float(np.mean(gen_to_train_min_dist)),
+            'min_dist_to_train': float(np.min(gen_to_train_min_dist)),
+            'median_dist_to_train': float(np.median(gen_to_train_min_dist)),
+            'std_dist_to_train': float(np.std(gen_to_train_min_dist)),
+            'num_gen': int(len(gen_to_train_min_dist)),
+            'num_train': int(len(train_coords)),
+        }
+        print(metrics_dict)
+
+        if return_per_sample:
+            metrics_dict['gen_to_train_min_dist'] = gen_to_train_min_dist.tolist()
+        return metrics_dict
 
     @staticmethod
     def compute_uc_dist_Hungary_alg(coord, gt_coord):
@@ -550,13 +708,35 @@ if __name__ == '__main__':
             indices.append(i)
     dataset = dataset[indices]
     split_dict = dataset.get_idx_split(len(dataset), 8000, 1, seed=42)
+    train_data = dataset[split_dict['train'].tolist()]
     test_data = dataset[split_dict['test'].tolist()]
-    
-    evaluator = LatticeEvaluator(test_datset=dataset[:1000], \
-                                 eval_file_path='/home/grads/jianpengc/projects/materials/MetaSymbO/results/pure_llm_prompt',)
 
+    method_eval_paths = {
+        'CDVAE': '/home/grads/jianpengc/projects/materials/MetaSymbO/results/cdvae/save_results',
+        "LLM-agent": '/home/grads/jianpengc/projects/materials/MetaSymbO/results/pure_llm_prompt',
+        'METASYMBO-Mix': '/home/grads/jianpengc/projects/materials/MetaSymbO/results/completely_mix',
+        'METASYMBO-Union': '/home/grads/jianpengc/projects/materials/MetaSymbO/results/completely',
+    }
 
-    evaluator.evaluate_all_uncondition_generation()
+    rebuttal_rows = []
+    for method_name, eval_path in method_eval_paths.items():
+        evaluator = LatticeEvaluator(
+            test_datset=test_data[:1000],
+            eval_file_path=eval_path,
+        )
+        dist_metrics = evaluator.eval_distance_to_train(train_dataset=train_data)
+        rebuttal_rows.append((
+            method_name,
+            dist_metrics['avg_dist_to_train'],
+            dist_metrics['min_dist_to_train'],
+        ))
+
+    print('\n| Method | Avg. dist. to train ↑ | Min. dist. to train ↑ |')
+    print('|---|---:|---:|')
+    for method_name, avg_dist, min_dist in rebuttal_rows:
+        print(f'| {method_name} | {avg_dist:.4f} | {min_dist:.4f} |')
+
+    # evaluator.evaluate_all_uncondition_generation()
     # effectiveness = evaluator.eval_condition_effectiveness()
 
 

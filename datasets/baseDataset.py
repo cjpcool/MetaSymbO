@@ -19,7 +19,7 @@ class LatticeTruss(InMemoryDataset):
 
         super().__init__(root=data_path)
 
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        self.data, self.slices = torch.load(self.processed_paths[0],weights_only=False)
 
     @property
     def processed_data_exist(self):

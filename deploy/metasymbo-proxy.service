@@ -1,0 +1,33 @@
+[Unit]
+Description=MetaSymbO Caddy reverse proxy on public port 5559
+After=metasymbo.service
+Wants=metasymbo.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/data/home/grads/jianpengc/projects/materials/MetaSymbO/deploy
+Environment=XDG_DATA_HOME=/data/home/grads/jianpengc/projects/materials/MetaSymbO/deploy/.runtime/data
+Environment=XDG_CONFIG_HOME=/data/home/grads/jianpengc/projects/materials/MetaSymbO/deploy/.runtime/config
+ExecStart=/data/home/grads/jianpengc/projects/materials/MetaSymbO/deploy/.runtime/bin/caddy run --config Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+UnsetEnvironment=OPENAI_API_KEY
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateUsers=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/data/home/grads/jianpengc/projects/materials/MetaSymbO/deploy/.runtime
+MemoryMax=512M
+TasksMax=128
+LimitNOFILE=8192
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

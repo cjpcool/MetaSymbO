@@ -4,7 +4,7 @@ import warnings
 warnings.filterwarnings("ignore")
 sys.path.append(os.path.dirname(os.path.abspath(__file__)) + '/../')
 
-from model.modal_agent12 import parse_graph_llm
+from utils.llm_utils import parse_graph
 import pandas as pd
 from tqdm import tqdm
 
@@ -51,6 +51,9 @@ def compute_repeated_ratio(coords, edge_indexs, lengths, angles, dist_threshold=
 # results_df = pd.read_csv( 'D:\ModalAgent\evaluation\gemini-2.0-flash-lite_prompt_guidance\\results_0.4755.csv')
 # results_df = pd.read_csv( 'D:\ModalAgent\evaluation\qwen3-235b-a22b_prompt_guidance\\results_qwen3-235b-a22b.csv')
 # results_df = pd.read_csv( 'D:\ModalAgent\evaluation\qwen3-235b-a22b_prompt_guidance\\results_qwen3-235b-a22b.csv')
+# results_df = pd.read_csv( '/home/grads/jianpengc/projects/materials/MetaSymbO/results/results_deepseek-reasoner.cleaned.csv')
+# results_df = pd.read_csv( '/home/grads/jianpengc/projects/materials/MetaSymbO/results/results_deepseek-reasoner.cleaned.csv')
+# results_df = pd.read_csv( '/home/grads/jianpengc/projects/materials/MetaSymbO/results/pure_llm_prompt')
 
 
 output_text = results_df['Output'].values.tolist()
@@ -63,7 +66,7 @@ for i, output in enumerate(tqdm(output_text)):
     # print('output', output)
     # Parse the graph from the output
     # z, coords, edge_index, batch, lengths, angles, num_atoms = parse_graph(output)
-    z, coords, edge_index, batch, lengths, angles, num_atoms = parse_graph_llm(output)
+    z, coords, edge_index, batch, lengths, angles, num_atoms = parse_graph(output)
     # visualizeLattice(coords.cpu().numpy(), edge_index.cpu().numpy())
     all_coords.append(coords)
     all_edge_indexs.append(edge_index)

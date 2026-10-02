@@ -1,0 +1,67 @@
+{
+	admin off
+	auto_https off
+	persist_config off
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 30s
+			write 60s
+			idle 2m
+		}
+		max_header_size 16KB
+	}
+}
+
+http://:5559 {
+	bind 0.0.0.0
+	encode gzip
+	request_body {
+		max_size 4MiB
+	}
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+	log {
+		output file .runtime/access.log {
+			roll_size 10MiB
+			roll_keep 5
+			roll_keep_for 168h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				request>uri delete
+				resp_headers delete
+			}
+		}
+	}
+	@private path_regexp private (^|/)\.
+	respond @private "Not found" 404
+	@application path / /static/app.js /static/styles.css /plotly.min.js /api/*
+	handle @application {
+		reverse_proxy 127.0.0.1:18765 {
+			# Overwrite client-supplied forwarding headers; only this hop is trusted.
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up -Forwarded
+			transport http {
+				dial_timeout 3s
+				response_header_timeout 30s
+			}
+			flush_interval -1
+		}
+	}
+	handle {
+		respond "Not found" 404
+	}
+	handle_errors {
+		header Content-Type application/json
+		respond `{"detail":"The MetaSymbO demo is temporarily unavailable. Please try again shortly."}` {err.status_code}
+	}
+}

@@ -18,8 +18,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt", required=True, type=str,
                         default="Design a structure with high stiffness, with less nodes.",
                         help="Natural‑language prompt handed to the agent")
-    parser.add_argument('--api_key', required=True, type=str, default="",
-                        help="API key for the client models (gpt api key)")
+    parser.add_argument('--api_key', type=str, default="",
+                        help="API key override; prefer the OPENAI_API_KEY environment variable")
 
     # compute / storage
     parser.add_argument("--cuda", type=int, default=0,
@@ -66,7 +66,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--save_dir', type=str, default='results/lattices', help='Directory to save the generation results')
     parser.add_argument("--verbose",        action="store_true")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    args.api_key = args.api_key or os.environ.get("OPENAI_API_KEY", "")
+    if not args.api_key:
+        parser.error("Set OPENAI_API_KEY in the environment before generation.")
+    return args
 
 
 def main() -> None:

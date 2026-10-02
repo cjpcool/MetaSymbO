@@ -51,6 +51,14 @@ class EncoderwithPredictionHead(nn.Module):
         if denormalize:
             # denormalize y_pred
             out = out * self.y_std + self.y_mean
+            # if not self.training:
+            #     # inplace
+            #     out[:, :6] = torch.abs(out[:, :6])
+            # else:
+            #     y_pred_6 = out[:, :6]
+            #     y_pred_post = out[:, 6:]
+            #     y_pred_6 = torch.abs(y_pred_6)
+            #     out = torch.cat([y_pred_6, y_pred_post], dim=1)
         return out
 
 class GeomEncoder(nn.Module):
@@ -316,8 +324,8 @@ class GeomVAE(nn.Module):
         Disentangle the latent space into edge, position, and semantic components.
         """
         z0_e = self.proj_in_edge(z0)
-        z0_p = self.proj_in_pos(z0)
-        z0_s = self.proj_in_semantic(z0)
+        z0_p = z0_e if self.proj_in_pos is self.proj_in_edge else self.proj_in_pos(z0)
+        z0_s = z0_e if self.proj_in_semantic is self.proj_in_edge else self.proj_in_semantic(z0)
         z0_s = scatter_add(z0_s, batch, dim=0)  # shape=[B, max_node_num, latent_dim]
         z0_s = self.proj_in_semantic1(z0_s)
 

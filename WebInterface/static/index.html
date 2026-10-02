@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Try MetaSymbO Online — Language-Guided Metamaterial Design</title>
+  <meta name="description" content="Explore metamaterial lattices, generate new designs from language, and inspect predicted mechanical properties with MetaSymbO.">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/plotly.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to workspace</a>
+  <header class="topbar">
+    <a href="#design" data-page="design" class="brand" aria-label="MetaSymbO home"><span class="brand-mark" aria-hidden="true">◇</span>MetaSymbO<span class="brand-sub">STUDIO</span></a>
+    <nav aria-label="Main navigation">
+      <button data-page="design" class="nav-button active">Design</button>
+      <button data-page="library" class="nav-button">Library</button>
+      <button data-page="compare" class="nav-button">Compare <span id="compare-count" class="counter">0</span></button>
+      <button data-page="runs" class="nav-button">Runs <span id="run-dot" hidden class="run-dot"></span></button>
+    </nav>
+    <button class="connection" id="setup-button"><span class="status-dot"></span>Demo status</button>
+  </header>
+
+  <main id="main">
+    <section id="page-design" class="page">
+      <div class="page-heading">
+        <div><p class="eyebrow">LANGUAGE-GUIDED METAMATERIAL DESIGN</p><h1 id="session-title">Try MetaSymbO Online</h1><p class="subtitle">Explore a lattice. Understand its geometry. Generate what comes next.</p><div class="landing-actions"><button class="button secondary" data-page="library">Explore Existing Designs</button><button class="button primary" id="new-design-button">Generate New Design</button></div></div>
+        <div class="heading-actions"><button id="import-button" class="button secondary">↥ Import lattice</button><input id="import-file" type="file" accept=".npz" hidden><button id="export-button" class="button secondary">↓ Export</button><button id="save-button" class="button primary">☆ Save candidate</button></div>
+      </div>
+      <div class="studio">
+        <aside class="panel brief-panel" aria-label="Design brief">
+          <div class="section-heading"><h2>Design brief</h2><span class="step-number">01</span></div>
+          <label for="brief">What should your material do?</label>
+          <textarea id="brief" rows="5" maxlength="2000" placeholder="Describe a mechanical goal, a direction, or a structure you want to explore…"></textarea>
+          <div class="presets"><button data-preset="Design a lattice that is stiffer along Z than X and Y.">↗ Directional stiffness</button><button data-preset="Explore a lattice with negative Poisson ratio. Evaluate the signed directional elastic properties.">↔ Auxetic response</button><button data-preset="Design a lattice with fewer nodes while retaining stiffness.">◇ Fewer nodes</button></div>
+          <div class="brief-note"><span class="tiny-label">WORKING BRIEF</span><p id="brief-state">Your goals stay editable. Review them before generating.</p></div>
+          <details class="advanced"><summary>Generation settings</summary>
+            <label for="logic">Symbolic operation</label><select id="logic"><option value="union">Combine · union</option><option value="mix">Blend · mix</option><option value="int">Emphasize common features</option><option value="neg">Suppress shared features</option></select>
+            <p class="help">Learned operations, not exact geometric Boolean edits.</p>
+            <div class="field-row"><label>Max. attempts<input id="attempts" type="number" min="1" max="2" value="1"></label><label>Seed<input id="seed" type="number" min="0" max="2147483647" value="42"></label></div>
+          </details>
+          <button id="review-button" class="button primary full">Review design brief <span>→</span></button>
+          <p id="generation-hint" class="help">Checking generation availability…</p>
+          <p id="public-note" class="help" hidden>Research demo · one model job at a time. Up to 2 generations per hour per network. Export results to keep them beyond 7 days; this browser's session is needed to reopen them. Avoid confidential inputs.</p>
+          <div class="divider"></div>
+          <h3>Make the next iteration yours</h3><p class="muted">Edit the brief, compare alternatives, and keep the structures worth exploring.</p>
+          <button class="text-button" data-page="library">Browse your lattice library →</button>
+          <div class="brief-bottom"><span class="mini-symbol">⌘</span><p>Geometry first.<br><strong>Evidence at every step.</strong></p></div>
+        </aside>
+
+        <section class="panel canvas-panel" aria-label="Selected lattice">
+          <div class="canvas-heading"><div><p class="tiny-label" id="candidate-origin">SAVED LATTICE</p><h2 id="candidate-name">Loading your workspace…</h2></div><span id="evidence-badge" class="badge">Geometry only</span></div>
+          <div class="local-tabs" role="tablist" aria-label="Candidate views"><button role="tab" aria-selected="true" aria-controls="structure-view" id="tab-structure" data-view="structure" class="active">Structure</button><button role="tab" aria-selected="false" aria-controls="properties-view" id="tab-properties" data-view="properties">Properties</button><button role="tab" aria-selected="false" aria-controls="validate-view" id="tab-validate" data-view="validate">Validate</button></div>
+          <div id="structure-view" role="tabpanel" aria-labelledby="tab-structure">
+            <div class="viewer-tools"><div class="tool-group"><label class="sr-only" for="repeat">Displayed repetitions</label><select id="repeat"><option value="1">Unit cell</option><option value="2">2 × 2 × 2 cells</option><option value="3">3 × 3 × 3 cells</option></select><button id="reset-view" class="tool-button">↺ Reset view</button></div><div class="tool-group"><button class="axis-button" data-camera="xy">XY</button><button class="axis-button" data-camera="xz">XZ</button><button class="axis-button" data-camera="yz">YZ</button></div></div>
+            <div id="lattice-view" class="lattice-view" role="img" aria-label="Interactive three-dimensional lattice. Drag to rotate, scroll to zoom. Geometry is also available in the table below."></div>
+            <div class="viewer-caption"><span id="view-caption">Real project geometry · physical scale unverified</span><span>Drag to orbit · Scroll to zoom</span></div>
+            <div id="geometry-stats" class="geometry-stats"></div>
+            <details class="geometry-details"><summary>Inspect nodes and cell geometry</summary><div id="geometry-table"></div></details>
+          </div>
+          <div id="properties-view" role="tabpanel" aria-labelledby="tab-properties" hidden><div id="property-content"></div></div>
+          <div id="validate-view" role="tabpanel" aria-labelledby="tab-validate" hidden>
+            <div class="validation-intro"><span class="badge amber">Setup only</span><h3>Make the assumptions explicit.</h3><p>Prepare a validation setup for this geometry. Simulation is not enabled in this first version; results remain labeled as predictions.</p></div>
+            <p class="help"><a href="http://zhoulab-1.cs.vt.edu:5557/demo" target="_blank" rel="noopener noreferrer">Explore PhyVer’s atomistic simulation workflow ↗</a></p>
+            <form id="validation-form" class="validation-form">
+              <div class="field-row"><label>Strut radius<input name="radius" type="number" min="0.000001" step="any" required placeholder="Required"></label><label>Length unit<select name="length_unit" required><option value="">Select unit</option><option>mm</option><option>m</option></select></label></div>
+              <label>Physical cell lengths</label><div class="field-row triple"><label>a<input name="a" type="number" min="0.000001" step="any" required></label><label>b<input name="b" type="number" min="0.000001" step="any" required></label><label>c<input name="c" type="number" min="0.000001" step="any" required></label></div>
+              <div class="field-row"><label>Base Young's modulus<input name="young" type="number" min="0.000001" step="any" required></label><label>Modulus unit<select name="modulus_unit"><option>MPa</option><option>GPa</option><option>Pa</option></select></label></div>
+              <div class="field-row"><label>Base Poisson ratio<input name="poisson" type="number" min="-0.999" max="0.499" step="any" required></label><label>Voxels per axis<input name="resolution" type="number" min="10" max="50" value="30" required></label></div>
+              <p class="help">The displayed strut thickness is illustrative. Physical radius, material assumptions, domain support, and solver accuracy must be verified before simulation.</p>
+              <button class="button primary" type="submit">Save validation setup</button><p id="validation-saved" role="status" class="help"></p>
+            </form>
+          </div>
+          <div class="candidate-strip-heading"><h3>Continue exploring</h3><button data-page="library" class="text-button">View library →</button></div><div id="candidate-strip" class="candidate-strip"></div>
+        </section>
+
+        <aside class="panel evidence-panel" aria-label="Evidence and geometry checks">
+          <div class="section-heading"><h2>Target & evidence</h2><span class="step-number">02</span></div>
+          <div id="evidence-summary"></div>
+          <div class="divider"></div><h3>Geometry checks</h3><div id="geometry-checks"></div>
+          <div class="divider"></div><h3>Where this came from</h3><div id="provenance"></div>
+          <button id="compare-add" class="button secondary full">＋ Add to comparison</button>
+          <p class="footnote">Graph checks describe geometry. They do not establish mechanical stability or printability.</p>
+        </aside>
+      </div>
+      <div id="active-run" class="active-run" hidden role="status"></div>
+    </section>
+
+    <section id="page-library" class="page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">A STARTING POINT FOR EVERY IDEA</p><h1>Lattice library</h1><p class="subtitle">Your saved research, ready to inspect and compare.</p></div><span id="library-total" class="large-count"></span></div>
+      <div class="library-toolbar"><label class="search-label"><span>⌕</span><input id="search" type="search" placeholder="Search by name or source…" aria-label="Search lattices"></label><label class="sr-only" for="group">Source collection</label><select id="group"><option value="">All collections</option></select><label class="check-label"><input id="saved-only" type="checkbox"> Saved only</label></div>
+      <div id="library-grid" class="library-grid"></div><div class="pagination"><button id="previous-page" class="button secondary">← Previous</button><span id="page-info"></span><button id="next-page" class="button secondary">Next →</button></div>
+    </section>
+
+    <section id="page-compare" class="page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">UNDERSTAND THE TRADE-OFFS</p><h1>Compare candidates</h1><p class="subtitle">Shared views. Explicit evidence. A choice you can explain.</p></div><button id="export-comparison" class="button secondary">↓ Export comparison</button></div>
+      <div class="compare-toolbar"><label class="check-label"><input id="sync-camera" type="checkbox" checked> Sync cameras</label><label class="check-label"><input id="same-scale" type="checkbox" checked> Same coordinate scale</label><span class="help">Choose two to four lattices from the library.</span></div>
+      <div id="compare-content"></div>
+    </section>
+
+    <section id="page-runs" class="page" hidden>
+      <div class="page-heading"><div><p class="eyebrow">A RECORD OF YOUR EXPLORATION</p><h1>Runs & history</h1><p class="subtitle">Follow a running job or return to a completed candidate.</p></div><button id="refresh-runs" class="button secondary">↻ Refresh</button></div><div id="runs-list"></div>
+    </section>
+  </main>
+  <footer><span>MetaSymbO <span class="footer-separator">/</span> Language-guided metamaterial discovery</span><span id="footer-status">Research workspace</span></footer>
+  <div id="toast" role="status" class="toast" hidden></div>
+
+  <dialog id="review-dialog"><form method="dialog"><div class="dialog-heading"><h2>Review your next run</h2><button class="close-button" aria-label="Close review">×</button></div></form><p class="muted">This exact brief will guide generation. Numeric targets are not inferred automatically.</p><blockquote id="review-text"></blockquote><div id="review-settings" class="review-settings"></div><p id="review-warning" class="notice"></p><div class="dialog-actions"><button id="review-edit" class="button secondary">Keep editing</button><button id="generate-button" class="button primary">Generate candidate →</button></div></dialog>
+  <dialog id="setup-dialog"><form method="dialog"><div class="dialog-heading"><h2>Workspace readiness</h2><button class="close-button" aria-label="Close setup">×</button></div></form><div id="setup-content"></div><p class="help">Credentials stay on the server. This interface never asks you to paste an API key.</p></dialog>
+  <dialog id="export-dialog"><form method="dialog"><div class="dialog-heading"><h2>Export this candidate</h2><button class="close-button" aria-label="Close export">×</button></div></form><p class="muted">Evidence labels and missing information stay with the export.</p><div class="export-options"><button data-export="npz" class="button secondary">Geometry · NPZ</button><button data-export="csv" class="button secondary">Properties & geometry · CSV</button><button data-export="png" class="button secondary">Current viewport · PNG</button><button data-export="report" class="button primary">Design report · JSON</button></div></dialog>
+</body>
+</html>

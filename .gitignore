@@ -1,0 +1,15 @@
+# Local credentials must never be committed or deployed as public assets.
+.env
+.env.*
+!.env.example
+__pycache__/
+.runtime/
+checkpoints/*.zip
+results/
+results/*
+*.log
+*wandb*
+docs/
+nohup*
+*.pt
+*.ipynb

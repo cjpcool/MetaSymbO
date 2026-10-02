@@ -112,22 +112,17 @@ def find_lattice_vectors(cart_coords):
     for lv_combination in combinations(possible_lvs, 3):
         lv_matrix = np.array(lv_combination)
 
-        # 检查这三个向量是否线性无关（行列式不为零）
         if np.linalg.det(lv_matrix) != 0:
-            # 构建一个矩阵，其中每一行都是一个节点坐标与原点之间的向量
             relative_coords = cart_coords - cart_coords.min(axis=0)
 
-            # 计算相对坐标在晶格向量基下的系数
             try:
                 coeffs = np.linalg.solve(lv_matrix.T, relative_coords.T).T
             except np.linalg.LinAlgError:
-                # 如果矩阵是奇异的，跳过这个组合
                 continue
 
             if np.allclose(coeffs, coeffs.round()):
                 valid_lvs.append(lv_matrix)
 
-    # 选择第一个有效的晶格向量组合作为结果
     if valid_lvs:
         lattice_vectors = valid_lvs[0]
     else:

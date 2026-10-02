@@ -13,3 +13,4 @@ docs/
 nohup*
 *.pt
 *.ipynb
+.vscode/

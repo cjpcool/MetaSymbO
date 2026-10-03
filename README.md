@@ -2,6 +2,8 @@
 
 **Multi-Agent Language-Guided Metamaterial Discovery via Symbolic Latent Evolution**
 
+Check out our introduction Video: https://drive.google.com/file/d/1Q5i45GsMDzTKgBZYi4eyKrio8zwlreMi/view?usp=sharing
+
 MetaSymbO turns natural-language design goals into three-dimensional metamaterial lattices. A language-based designer, a learned generator, and a supervisor collaborate through symbolic operations and latent-space optimization to explore candidate structures and their predicted elastic properties.
 
 We appreciate the citations as follows:
